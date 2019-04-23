@@ -14,7 +14,7 @@ output:
 
 ```{r setup, include=FALSE}
 # load packages
-list_of_packages <- c("tidyverse", "purrr", "janitor", "glue", "rio", "pracma")
+list_of_packages <- c("tidyverse", "purrr", "janitor", "glue", "rio", "pracma", "here")
 lapply(list_of_packages, library, character.only = TRUE)
 rm(list_of_packages)
 
@@ -63,9 +63,29 @@ Remove any row that has missing data in any of the n variables
 ## # … with 90,566 more rows
 ```
 
+```{r}
+data <- map_df(seq(15, 18, 1), download_file) %>% 
+    clean_names() %>% 
+    filter(student_group == "White" | student_group == "Hispanic/Latino") %>% 
+    select(., academic_year, district, school, student_group, grade_level, 
+           number_level_1, number_level_2, number_level_3, number_level_4) %>% 
+	gather(key = level, value = n, starts_with("number")) %>% 
+    filter(!is.na(n)) %>% 
+    mutate(level = parse_number(level)) %>% 
+    arrange(academic_year, district, school, student_group, grade_level, level) #https://blog.exploratory.io/7-most-practically-useful-operations-when-wrangling-with-text-data-in-r-7654bd9d1a0c
+    
+```
+
 ## Cumulative n
 
 Calculate the cumulative n for each school by student group, grade, and academic year. The result should look like the below. Hint, look at ?base::cumsum.
+
+```{r}
+data_sums <- data %>% 
+    group_by(student_group, grade_level, academic_year) %>% 
+    mutate(cn = cumsum(n)) 
+```
+
 
 ```
 ## # A tibble: 90,576 x 8
