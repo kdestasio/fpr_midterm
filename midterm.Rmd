@@ -18,7 +18,7 @@ list_of_packages <- c("tidyverse", "purrr", "janitor", "glue", "rio", "pracma", 
 lapply(list_of_packages, library, character.only = TRUE)
 rm(list_of_packages)
 
-knitr::opts_chunk$set(echo = FALSE, 
+knitr::opts_chunk$set(echo = TRUE, 
                       cache = TRUE,
                       dev.args = list(bg = "transparent", pointsize = 10),
                       fig.width = 12, fig.height = 8, fig.path = 'Figs/'
@@ -46,24 +46,8 @@ Filter for only student groups coded as "White" or "Hispanic/Latino".
 Select variables related to the number of students in each of the levels (1:4), and not percentages or collapsed levels.
 
 Remove any row that has missing data in any of the n variables
-```
-## # A tibble: 90,576 x 7
-##    academic_year district  school     student_group grade_level level     n
-##    <chr>         <chr>     <chr>      <chr>         <chr>       <dbl> <dbl>
-##  1 2014-2015     Adrian S… Adrian El… Hispanic/Lat… Grade 3         1     2
-##  2 2014-2015     Adrian S… Adrian El… Hispanic/Lat… Grade 3         2     1
-##  3 2014-2015     Adrian S… Adrian El… Hispanic/Lat… Grade 3         3     2
-##  4 2014-2015     Adrian S… Adrian El… Hispanic/Lat… Grade 3         4     1
-##  5 2014-2015     Adrian S… Adrian El… Hispanic/Lat… Grade 6         1     2
-##  6 2014-2015     Adrian S… Adrian El… Hispanic/Lat… Grade 6         2     3
-##  7 2014-2015     Adrian S… Adrian El… Hispanic/Lat… Grade 6         3     2
-##  8 2014-2015     Adrian S… Adrian El… Hispanic/Lat… Grade 6         4     0
-##  9 2014-2015     Adrian S… Adrian El… Hispanic/Lat… Grade 7         1     2
-## 10 2014-2015     Adrian S… Adrian El… Hispanic/Lat… Grade 7         2     2
-## # … with 90,566 more rows
-```
 
-```{r}
+```{r create data frame}
 data <- map_df(seq(15, 18, 1), download_file) %>% 
     clean_names() %>% 
     filter(student_group == "White" | student_group == "Hispanic/Latino") %>% 
@@ -73,68 +57,32 @@ data <- map_df(seq(15, 18, 1), download_file) %>%
     filter(!is.na(n)) %>% 
     mutate(level = parse_number(level)) %>% 
     arrange(academic_year, district, school, student_group, grade_level, level) #https://blog.exploratory.io/7-most-practically-useful-operations-when-wrangling-with-text-data-in-r-7654bd9d1a0c
-    
+
+head(data)
 ```
 
 ## Cumulative n
 
 Calculate the cumulative n for each school by student group, grade, and academic year. The result should look like the below. Hint, look at ?base::cumsum.
 
-```{r}
+```{r cumulative n}
 data_sums <- data %>% 
     group_by(student_group, grade_level, academic_year) %>% 
     mutate(cn = cumsum(n)) 
-```
 
-
-```
-## # A tibble: 90,576 x 8
-##    academic_year district     school                   student_group  
-##    <chr>         <chr>        <chr>                    <chr>          
-##  1 2014-2015     Adrian SD 61 Adrian Elementary School Hispanic/Latino
-##  2 2014-2015     Adrian SD 61 Adrian Elementary School Hispanic/Latino
-##  3 2014-2015     Adrian SD 61 Adrian Elementary School Hispanic/Latino
-##  4 2014-2015     Adrian SD 61 Adrian Elementary School Hispanic/Latino
-##  5 2014-2015     Adrian SD 61 Adrian Elementary School Hispanic/Latino
-##  6 2014-2015     Adrian SD 61 Adrian Elementary School Hispanic/Latino
-##  7 2014-2015     Adrian SD 61 Adrian Elementary School Hispanic/Latino
-##  8 2014-2015     Adrian SD 61 Adrian Elementary School Hispanic/Latino
-##  9 2014-2015     Adrian SD 61 Adrian Elementary School Hispanic/Latino
-## 10 2014-2015     Adrian SD 61 Adrian Elementary School Hispanic/Latino
-##    grade_level level     n    cn
-##    <chr>       <dbl> <dbl> <dbl>
-##  1 Grade 3         1     2     2
-##  2 Grade 3         2     1     3
-##  3 Grade 3         3     2     5
-##  4 Grade 3         4     1     6
-##  5 Grade 6         1     2     2
-##  6 Grade 6         2     3     5
-##  7 Grade 6         3     2     7
-##  8 Grade 6         4     0     7
-##  9 Grade 7         1     2     2
-## 10 Grade 7         2     2     4
-## # … with 90,566 more rows
+head(data_sums)
 ```
 
 ## Reformat data
 
 Reformat the data so it looks like the below, removing n and filling by cn. Remove rows that have missing data for either student group.
+```{r}
+data_grouped <- data_sums %>% select(., -n) %>% 
+    spread(., student_group, cn) %>% 
+    clean_names() %>% 
+    filter(!is.na(hispanic_latino) & !is.na(white))
 
-```
-## # A tibble: 33,948 x 7
-##    academic_year district  school   grade_level level hispanic_latino white
-##    <chr>         <chr>     <chr>    <chr>       <dbl>           <dbl> <dbl>
-##  1 2014-2015     Adrian S… Adrian … Grade 3         1               2     0
-##  2 2014-2015     Adrian S… Adrian … Grade 3         2               3     4
-##  3 2014-2015     Adrian S… Adrian … Grade 3         3               5     7
-##  4 2014-2015     Adrian S… Adrian … Grade 3         4               6    11
-##  5 2014-2015     Adrian S… Adrian … Grade 6         1               2     0
-##  6 2014-2015     Adrian S… Adrian … Grade 6         2               5     3
-##  7 2014-2015     Adrian S… Adrian … Grade 6         3               7     8
-##  8 2014-2015     Adrian S… Adrian … Grade 6         4               7     9
-##  9 2014-2015     Adrian S… Adrian … Grade 7         1               2     3
-## 10 2014-2015     Adrian S… Adrian … Grade 7         2               4     5
-## # … with 33,938 more rows
+head(data_grouped)    
 ```
 
 # Achievement gaps
@@ -155,16 +103,23 @@ gap <- function(data, ref, foc) {
 }
 ```
 
-**Example**
-
-```
-gap(d[1:4, ], "white", "hispanic_latino")
+```{r, include=FALSE}
+# Example
+gap(data_grouped[1:4, ], "white", "hispanic_latino")
 ## [1] -0.6091404
 ```
 
 ## Achievement gap effect size by school
 
 Estimate an achievement gap effect size for every school in the state that reported data on both student groups (i.e., using the data we created above), for each grade level in each academic year.
+
+```{r}
+head(data_grouped)
+
+data_gap <- data_grouped %>% 
+    split(., list(.$school, .$grade_level, .$academic_year), drop = TRUE) %>% 
+    map_df(., ~mutate(., achievement_gap = gap(.x,"white", "hispanic_latino")))
+```
 
 ## Achievement gap plots
 
