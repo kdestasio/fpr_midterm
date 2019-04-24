@@ -49,7 +49,7 @@ Select variables related to the number of students in each of the levels (1:4), 
 Remove any row that has missing data in any of the n variables
 
 ```{r create data frame}
-data <- map_df(seq(15, 18, 1), download_file) %>% 
+data_students <- map_df(seq(15, 18, 1), download_file) %>% 
     clean_names() %>% 
     filter(student_group == "White" | student_group == "Hispanic/Latino") %>% 
     select(., academic_year, district, school, student_group, grade_level, 
@@ -59,7 +59,7 @@ data <- map_df(seq(15, 18, 1), download_file) %>%
     mutate(level = parse_number(level)) %>% 
     arrange(academic_year, district, school, student_group, grade_level, level) #https://blog.exploratory.io/7-most-practically-useful-operations-when-wrangling-with-text-data-in-r-7654bd9d1a0c
 
-head(data)
+head(data_students)
 ```
 
 ## Cumulative n
@@ -67,23 +67,25 @@ head(data)
 Calculate the cumulative n for each school by student group, grade, and academic year. The result should look like the below. Hint, look at ?base::cumsum.
 
 ```{r cumulative n}
-data_sums <- data %>% 
-    group_by(student_group, grade_level, academic_year) %>% 
-    mutate(cn = cumsum(n)) 
+data_cumsum <- data_students %>% 
+    split(., list(data_students$student_group, data_students$grade_level, data_students$academic_year, data_students$school)) %>% 
+    map_df(., ~mutate(.x, cn = cumsum(n))) %>% 
+    arrange(., academic_year, district, school, student_group, grade_level)
 
-head(data_sums)
+tail(data_cumsum)
 ```
 
 ## Reformat data
 
 Reformat the data so it looks like the below, removing n and filling by cn. Remove rows that have missing data for either student group.
 ```{r}
-data_grouped <- data_sums %>% select(., -n) %>% 
+data_cn <- data_cumsum %>% 
+    select(., -n) %>% 
     spread(., student_group, cn) %>% 
     clean_names() %>% 
     filter(!is.na(hispanic_latino) & !is.na(white))
 
-head(data_grouped)    
+head(data_cn)    
 ```
 
 # Achievement gaps
@@ -106,7 +108,7 @@ gap <- function(data, ref, foc) {
 
 ```{r example gap function, include=FALSE}
 # Example
-gap(data_grouped[1:4, ], "white", "hispanic_latino")
+gap(data_cn[1:4, ], "white", "hispanic_latino")
 ## [1] -0.6091404
 ```
 
@@ -115,9 +117,7 @@ gap(data_grouped[1:4, ], "white", "hispanic_latino")
 Estimate an achievement gap effect size for every school in the state that reported data on both student groups (i.e., using the data we created above), for each grade level in each academic year.
 
 ```{r calculate achievement gaps}
-head(data_grouped)
-
-data_gap <- data_grouped %>% 
+data_gap <- data_cn %>% 
     group_by(academic_year, district, school, grade_level) %>%
 	nest() %>%
 	mutate(achievement_gap = map_dbl(data, ~gap(.x, "white", "hispanic_latino")))
@@ -130,10 +130,13 @@ head(data_gap)
 The plot below shows the achievement gap estimates for one school by grade in Ashland School District during the 2017-18 school year. Produce a similar plot to the below (noting the school, academic year, and school district) for each of the first 100 unique school/year/district combinations. Hint - you’ll want to use your effect size data from from the previous question, nest it, then apply slice(1:100). Note that the only reason I’m asking you to slice the data frame is just to reduce run time. In reality, you would do this for all school/year/district combinations.
 
 ```{r}
-filter(data_gap, grade_level == "Grade 6" | grade_level == "Grade 7" | grade_level == "Grade 8") %>% 
-slice(., 1:100) %>% 
-    ggplot(., aes(grade_level, achievement_gap)) +
-    geom_()
+temp <- filter(data_gap, school == "Ashland Middle School" & academic_year == "2017-2018")
+
+ggplot(temp, aes(x = grade_level, y = achievement_gap, fill = achievement_gap)) +
+    geom_col() +
+    coord_flip() 
+    
+
 ```
 
 ## Save the plots
