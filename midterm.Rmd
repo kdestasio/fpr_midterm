@@ -160,12 +160,12 @@ ggplot(temp_oneschool, aes(x = grade_level, y = achievement_gap, fill = achievem
     coord_flip()
     
 # Now do it for the first 100 unique combinations of school/year/district
-temp_first100 <- data_gap %>% slice(., 1:100) %>% 
-    split(., .$school, drop = FALSE) %>%
-    map(., ~achiev_plot(plot_data = .x, x = grade_level, y = achievement_gap, school = school, district = district, academic_year = academic_year))
+data_gap %>% select(-data) %>% 
+    group_by(school, academic_year, district) %>% 
+    nest() %>% 
+    slice(1:100) 
 
-
-achiev_plot <- function(plot_data, x, y, school, district, academic_year) {
+# need to pipe into this or make it a function or something
 ggplot(plot_data, aes(x = x, y = y, fill = y)) +
     geom_col(alpha = .5) +
     geom_hline(yintercept = 0,size = 3) +
@@ -184,10 +184,6 @@ ggplot(plot_data, aes(x = x, y = y, fill = y)) +
           panel.background = element_rect(fill = "transparent", colour = NA),
           plot.background = element_rect(fill = "transparent", colour = NA)) +
     coord_flip()
-    }
-
-
-
     
 ```
 
