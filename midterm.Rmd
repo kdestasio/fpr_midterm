@@ -127,66 +127,48 @@ head(data_gap)
 
 ## Achievement gap plots
 
-The plot below shows the achievement gap estimates for one school by grade in Ashland School District during the 2017-18 school year. Produce a similar plot to the below (noting the school, academic year, and school district) for each of the first 100 unique school/year/district combinations. Hint - you’ll want to use your effect size data from from the previous question, nest it, then apply slice(1:100). Note that the only reason I’m asking you to slice the data frame is just to reduce run time. In reality, you would do this for all school/year/district combinations.
+The plot below shows the achievement gap estimates for one school by grade in Ashland School District during the 2017-18 school year. Produce a similar plot to the below (noting the school, academic year, and school district) for each of the first 100 unique school/year/district combinations. Hint - you’ll want to use your effect size data from from the previous question, nest it, then apply slice(1:100). Note that the only reason I’m asking you to slice the data frame is just to reduce run time. In reality, you would do this for all school/year/district combinations.  
 
 ```{r}
-# Figure out the code to reproduce the plot for one school
-temp_oneschool <- data_gap %>% filter(., district == "Ashland SD 5", 
-                                      academic_year == "2017-2018",
-                                      grade_level == "Grade 6" |
-                                      grade_level == "Grade 7" | 
-                                      grade_level == "Grade 8")
-
-ggplot(temp_oneschool, aes(x = grade_level, y = achievement_gap, fill = achievement_gap)) +
-    geom_col(alpha = .5) +
-    geom_hline(yintercept = 0,
-               size = 3) +
-    labs(x = "Grade",
-         y = "Effect Size",
-         title = paste("Achievement Gap Estimates:", temp_oneschool$school[1]),
-         subtitle = "Students coded as White as compared to those coded as Hispanic/Latino",
-         caption = paste0(temp_oneschool$academic_year, " School year, ", temp_oneschool$district, ", Oregon")) +
-    theme_minimal(base_size = 12) +
-    theme(plot.title = element_text(hjust = 0.5, size = 30),
-          plot.subtitle = element_text(hjust = 0.5, size = 25),
-          plot.caption = element_text(hjust = 1),
-          legend.background = element_rect(fill = NA, color = NA), 
-          legend.direction = "horizontal", 
-          legend.position = c(.9,-.025),
-          panel.background = element_rect(fill = "transparent",colour = NA),
-          plot.background = element_rect(fill = "transparent",colour = NA)) +
-    coord_flip()
-    
-# Now do it for the first 100 unique combinations of school/year/district
-plot_data <- data_gap %>% select(-data) %>% 
+plots_df <- data_gap %>% select(-data) %>% 
     group_by(school, academic_year, district) %>% 
     nest() %>% 
-    slice(1:100) 
-
-# need to pipe into this or make it a function or something
-myplot <- function(data, school = school, academic_year = academic_year, district = district){ 
-    ggplot(data, aes(x = grade_level, y = achievement_gap, fill = achievement_gap)) +
-    geom_col(alpha = .5) +
-    geom_hline(yintercept = 0,size = 3) +
-    labs(x = "Grade",
-         y = "Effect Size",
-         title = glue::glue("Achievement Gap Estimates: {school}"),
-         subtitle = "Students coded as White as compared to those coded as Hispanic/Latino",
-         caption = glue::glue("{academic_year} School year, {district}, Oregon")) +
-    theme_minimal(base_size = 12) +
-    theme(plot.title = element_text(hjust = 0.5, size = 30),
-          plot.subtitle = element_text(hjust = 0.5, size = 25),
-          plot.caption = element_text(hjust = 1),
-          legend.background = element_rect(fill = NA, color = NA), 
-          legend.direction = "horizontal", 
-          legend.position = c(.9,-.025),
-          panel.background = element_rect(fill = "transparent", colour = NA),
-          plot.background = element_rect(fill = "transparent", colour = NA)) +
-    coord_flip()
-}
-
-
-plots <- plot_data %>% pmap(myplot)
+    slice(1:100) %>% 
+     mutate(plots = pmap(list(data, district, school, academic_year), 
+                     function(data, district, school, academic_year)
+    ggplot(data, aes(grade_level, achievement_gap)) +
+                           geom_col(aes(fill = achievement_gap),
+                                    alpha = .9,
+                                    color = "DarkGrey") +
+                           geom_hline(yintercept = 0,
+                                      size = 1,
+                                      color = "LightGreen") +
+                           scale_fill_distiller(type = "div",
+                                                limits = c(min(data$achievement_gap), 
+                                                           max(data$achievement_gap)),
+                                                palette = "GnBu",
+                                                direction = 1) +
+                            labs(x = "Grade",
+                                 y = "Effect Size",
+                                 title = glue::glue("Achievement Gap Estimates: {school}"),
+                                 subtitle = "Students coded as White as compared to those coded as Hispanic/Latino",
+                                 caption = glue::glue("{academic_year} School year, {district}, Oregon")) +
+                            theme_minimal(base_size = 12) +
+                            theme(plot.title = element_text(hjust = 0.5, size = 18),
+                                  plot.subtitle = element_text(hjust = 0.5, size = 12),
+                                  plot.caption = element_text(hjust = 1),
+                                  legend.background = element_rect(fill = NA, color = NA), 
+                                  legend.direction = "horizontal", 
+                                  legend.position = "bottom", 
+                                  legend.text = element_text(size = 7),
+                                  legend.title = element_text(size = 8),
+                                  legend.box.margin = margin(2, 2, 2, 2),
+                                  legend.key.size = unit(20, units = "points"),
+                                  panel.background = element_rect(fill = "transparent", colour = NA),
+                                  plot.background = element_rect(fill = "transparent", colour = NA),
+                                  plot.margin = margin(40,40,40,40)) +
+                            coord_flip()
+           ))
 ```
 
 ## Save the plots
@@ -195,11 +177,16 @@ Save the plots into a “plots” directory. Make sure the file names are meanin
 ```{r}
 dir.create(file.path(here(), "plots"))
 
-plots %>% 
-    map(., ~ggsave(filename = .x$labels$caption, 
-           plot = ., 
-           device = "png", 
-           path = paste0(here(), "/plots/")))
+files <- str_replace_all(map_chr(plots_df$plots, 
+            ~str_replace_all(tolower(.x), ",", "_")), 
+    fixed(" "), "_")
+paths <- here::here("plots", glue("{files}.png"))
+
+                    
+walk2(paths, plots_df$plots, ggsave,
+      width = 9.5, 
+      height = 6.5,
+      dpi = 500)
 ```
 
 # HINTS
