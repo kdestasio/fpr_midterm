@@ -3,9 +3,6 @@ title: 'Midterm: Take-home'
 author: "Krista DeStasio"
 date: "4/22/2019"
 output:
-  pdf_document:
-    toc: yes
-    toc_depth: '3'
   html_document:
     code_folding: hide
     highlight: pygments
@@ -14,11 +11,14 @@ output:
     toc: yes
     toc_depth: 3
     toc_float: no
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
 ---
 
 ```{r setup, include=FALSE}
 # load packages
-list_of_packages <- c("tidyverse", "purrr", "janitor", "glue", "rio", "pracma", "here")
+list_of_packages <- c("tidyverse", "purrr", "janitor", "glue", "rio", "pracma", "here", "stringr")
 lapply(list_of_packages, library, character.only = TRUE)
 rm(list_of_packages)
 
@@ -135,54 +135,54 @@ plots_df <- data_gap %>% select(-data) %>%
     nest() %>% 
     slice(1:100) %>% 
      mutate(plots = pmap(list(data, district, school, academic_year), 
-                     function(data, district, school, academic_year)
-    ggplot(data, aes(grade_level, achievement_gap)) +
-                           geom_col(aes(fill = achievement_gap),
-                                    alpha = .9,
-                                    color = "DarkGrey") +
-                           geom_hline(yintercept = 0,
-                                      size = 1,
-                                      color = "LightGreen") +
-                           scale_fill_distiller(type = "div",
-                                                limits = c(min(data$achievement_gap), 
-                                                           max(data$achievement_gap)),
-                                                palette = "GnBu",
-                                                direction = 1) +
-                            labs(x = "Grade",
-                                 y = "Effect Size",
-                                 title = glue::glue("Achievement Gap Estimates: {school}"),
-                                 subtitle = "Students coded as White as compared to those coded as Hispanic/Latino",
-                                 caption = glue::glue("{academic_year} School year, {district}, Oregon")) +
-                            theme_minimal(base_size = 12) +
-                            theme(plot.title = element_text(hjust = 0.5, size = 18),
-                                  plot.subtitle = element_text(hjust = 0.5, size = 12),
-                                  plot.caption = element_text(hjust = 1),
-                                  legend.background = element_rect(fill = NA, color = NA), 
-                                  legend.direction = "horizontal", 
-                                  legend.position = "bottom", 
-                                  legend.text = element_text(size = 7),
-                                  legend.title = element_text(size = 8),
-                                  legend.box.margin = margin(2, 2, 2, 2),
-                                  legend.key.size = unit(20, units = "points"),
-                                  panel.background = element_rect(fill = "transparent", colour = NA),
-                                  plot.background = element_rect(fill = "transparent", colour = NA),
-                                  plot.margin = margin(40,40,40,40)) +
-                            coord_flip()
-           ))
+                         function(data, district, school, academic_year)
+                             ggplot(data, aes(grade_level, achievement_gap)) +
+                             geom_col(aes(fill = achievement_gap),
+                                      alpha = .8,
+                                      color = "DarkGrey") +
+                             geom_hline(yintercept = 0,
+                                        size = 1,
+                                        color = "LightGreen") +
+                             scale_fill_distiller(type = "div",
+                                                  limits = c(min(data$achievement_gap), 
+                                                             max(data$achievement_gap)),
+                                                  palette = "GnBu",
+                                                  direction = 1) +
+                             labs(x = "Grade",
+                                  y = "Effect Size",
+                                  title = glue::glue("Achievement Gap Estimates: {school}"),
+                                  subtitle = "Students coded as White as compared to those coded as Hispanic/Latino",
+                                  caption = glue::glue("{academic_year} School year, {district}, Oregon")) +
+                             theme_minimal(base_size = 12) +
+                             theme(plot.title = element_text(hjust = 0.5, size = 18),
+                                   plot.subtitle = element_text(hjust = 0.5, size = 12),
+                                   plot.caption = element_text(hjust = 1),
+                                   legend.background = element_rect(fill = NA, color = NA), 
+                                   legend.direction = "horizontal", 
+                                   legend.position = "bottom", 
+                                   legend.text = element_text(size = 7),
+                                   legend.title = element_blank(),
+                                   legend.box.margin = margin(2, 2, 2, 2),
+                                   legend.key.size = unit(20, units = "points"),
+                                   panel.background = element_rect(fill = "transparent", colour = NA),
+                                   plot.background = element_rect(fill = "transparent", colour = NA),
+                                   plot.margin = margin(40,40,40,40)) +
+                             coord_flip()
+     ))
 ```
 
 ## Save the plots
 
 Save the plots into a “plots” directory. Make sure the file names are meaningful.
 ```{r}
-dir.create(file.path(here(), "plots"))
+dir.create(file.path(here(), "plots"), showWarnings = FALSE)
 
-files <- str_replace_all(map_chr(plots_df$plots, 
-            ~str_replace_all(tolower(.x), ",", "_")), 
-    fixed(" "), "_")
-paths <- here::here("plots", glue("{files}.png"))
+districts <- paste(str_replace_all(tolower(word(plots_df$district)), " ", "_"), "sd", sep = "-")
+schools <- str_replace_all(tolower(plots_df$school), " ", "_")
+years <- str_replace_all(tolower(plots_df$academic_year), " ", "_")
+file_names <- paste0(paste(years, districts, schools, sep = "_"), ".png")
 
-                    
+paths <- here::here("plots", file_names)
 walk2(paths, plots_df$plots, ggsave,
       width = 9.5, 
       height = 6.5,
